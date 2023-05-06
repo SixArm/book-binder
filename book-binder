@@ -1,0 +1,59 @@
+#!/bin/sh
+set -euf
+
+##
+# book-binder
+#
+# Create a book by binding our project's page markdown files.
+#
+# Steps:
+#
+# 1. Parse the README.md file into page markdown file URLs.
+#
+# 2. Copy each page markdown file into one markdown file.
+#
+# 3. Fix up internal links to point to repo URLs.
+#
+# The result is one big markdown file, suitable for pandoc.
+##
+
+book_input_file=$1;   shift; # e.g. "book-input.yml" where we read the front matter
+book_output_file=$1;  shift; # e.g. "book-output.md" where we write the build results
+book_links_file=$1;   shift; # e.g. "book-links.md" where we scan page markdown links
+book_link_prefix=$1;  shift; # e.g. "https://example.com/" where we direct top-level links
+
+fold_file(){
+    {
+        printf \\n;
+        cat "$TOP/$1/index.md"
+        printf \\n;
+    }
+}
+
+cp "$book_input_file" "$book_output_file"
+
+<"$book_links_file" markdown-text-to-link-urls |
+grep '^doc/' |
+while read -r x; do
+    fold_file "$x" >> "$book_output_file"
+done
+
+# Convert Markdown headlines so they work with PDF TOC.
+#
+#   * ## to ### (so the TOC doesn't use it)
+#   * # to ## (so the TOC shows a typical dot dot dot line)
+#   * # **Headline** to # (so the TOC shows a section entry)
+#
+sed -i.bak 's/^## /### /; s/^# /## /; s/^## \*\*\(.*\)\*\*$/# \1/' "$book_output_file" && rm "$book_output_file.bak"
+
+# Convert project links from relative to absolute.
+#
+# Example input:
+#
+#     [Foo](/foo)
+#
+# Example output:
+#
+#     [Foo](https://example.com/foo)
+#
+sed -i.bak "s#](/#(${book_link_prefix}/#g" "$book_output_file" && rm "$book_output_file.bak"
