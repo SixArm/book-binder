@@ -1,28 +1,163 @@
 #!/bin/sh
 set -euf
 
-##
-# book-binder
-#
-# Create a book by binding our project's page markdown files.
-#
-# Steps:
-#
-# 1. Parse the README.md file into page markdown file URLs.
-#
-# 2. Copy each page markdown file into one markdown file.
-#
-# 3. Fix up internal links to point to repo URLs.
-#
-# The result is one big markdown file, suitable for pandoc.
-##
+## Program Tracking
+
+program_command="book-binder"
+program_version="1.0.0"
+program_created="2023-04-23T14:46:43Z"
+program_updated="2023-05-08T19:27:30Z"
+program_license="GPL-2.0 or GPL-3.0 or contact us for more"
+program_website="https://github.com/sixarm/book-binder"
+program_contact="Joel Parker Henderson (joel@sixarm.com)"
+
+## Source https://github.com/sixarm/unix-shell-script-kit
+. "$(dirname "$(readlink -f "$0")")/unix-shell-script-kit"
+
+## Help Function
+
+help(){
+cat << EOF
+book-binder
+
+Create a book by binding our project's page markdown files.
+
+Syntax:
+
+    book-binder <input-file> <output-file> <link-file> <link-url-prefix>
+
+Example:
+
+    book-binder "input.yml" "output.md" "README.md" "https://example.com/example"
+
+Steps:
+
+1. Parse the README.md file into page markdown file URLs.
+
+2. Copy each page markdown file into one markdown file.
+
+3. Fix up internal links to point to repo URLs.
+
+The result is one big markdown file, suitable for pandoc.
+
+## Options
+
+  * -h --help: 
+      print helpful information
+
+  * -v --verbose: 
+      increase the verbose level
+
+  * -V --version:
+      print the program version number
+
+  * --foo=<value>:
+      set the foo variable to a value
+
+## Options to print program information
+
+  * --program-command:
+      print the program command name
+
+  * --program-version:
+      print the program version number
+
+  * --program-created:
+      print the program created date stamp
+
+  * --program-updated:
+      print the program updated date stamp
+
+  * --program-license:
+      print the program license name
+
+  * --program-website:
+      print the program website URL
+
+  * --program-contact:
+      print the program contact information for the maintainer
+
+## Tracking
+
+  * Command: $program_command
+  * Version: $program_version
+  * Created: $program_created
+  * Updated: $program_updated
+  * License: $program_license
+  * Website: $program_website
+  * Contact: $program_contact
+EOF
+}
+
+verbose=0
+while :; do
+    case $1 in
+        --)
+            shift
+            break
+            ;;
+        -h|--help)
+            help; exit 0;
+            ;;
+        -v|--verbose)
+            verbose=$((verbose + 1))
+            ;;
+        -V|--version)
+            out "$program_version"; exit 0;
+            ;;
+        # Options that print program information variables.
+        # These variables are all set at the top of the script.
+        --program-command)
+            out "$program_command"; exit 0;
+            ;;
+        --program-version)
+            out "$program_version"; exit 0;
+            ;;
+        --program-created)
+            out "$program_created"; exit 0;
+            ;;
+        --program-updated)
+            out "$program_updated"; exit 0;
+            ;;
+        --program-license)
+            out "$program_license"; exit 0;
+            ;;
+        --program-website)
+            out "$program_website"; exit 0;
+            ;;
+        --program-contact)
+            out "$program_contact"; exit 0;
+            ;;
+        # Catch-all that enables arbitrary options such as key=val.
+        # Depending on your goals, you can use this section or not.
+        --*=*)
+            key="${1#--}"; key="${key%%=*}";
+            val="${1#*=}";
+            eval "$key"=\$val
+            shift
+            ;;
+        # Catch-all for unexpected input that looks like an option.
+        # Depending on your goals, you can use this section or not.
+        -?*)
+            die "The command line option is unknown: " "$1"
+            ;;
+        # Any other arguments are to be treated as content, or as positional
+        # arguments that are parsed later, thus break out of this loop.
+        *)
+            break
+            ;;
+    esac
+    shift
+done            
 
 book_input_file=$1;   shift; # e.g. "book-input.yml" where we read the front matter
 book_output_file=$1;  shift; # e.g. "book-output.md" where we write the build results
 book_links_file=$1;   shift; # e.g. "book-links.md" where we scan page markdown links
 book_link_prefix=$1;  shift; # e.g. "https://example.com/" where we direct top-level links
 
-fold_file(){
+# Read one markdown page file.
+# This is essentially a map-fold function.
+fold_page(){
     {
         printf \\n;
         cat "$TOP/$1/index.md"
@@ -30,21 +165,15 @@ fold_file(){
     }
 }
 
-cp "$book_input_file" "$book_output_file"
-
-<"$book_links_file" markdown-text-to-link-urls |
-grep '^doc/' |
-while read -r x; do
-    fold_file "$x" >> "$book_output_file"
-done
-
 # Convert Markdown headlines so they work with PDF TOC.
 #
 #   * ## to ### (so the TOC doesn't use it)
 #   * # to ## (so the TOC shows a typical dot dot dot line)
 #   * # **Headline** to # (so the TOC shows a section entry)
 #
-sed -i.bak 's/^## /### /; s/^# /## /; s/^## \*\*\(.*\)\*\*$/# \1/' "$book_output_file" && rm "$book_output_file.bak"
+convert_book_output_markdown_headlines_to_work_with_pdf_toc(){
+    sed -i.bak 's/^## /### /; s/^# /## /; s/^## \*\*\(.*\)\*\*$/# \1/' "$book_output_file" && rm "$book_output_file.bak"
+}
 
 # Convert project links from relative to absolute.
 #
@@ -56,4 +185,19 @@ sed -i.bak 's/^## /### /; s/^# /## /; s/^## \*\*\(.*\)\*\*$/# \1/' "$book_output
 #
 #     [Foo](https://example.com/foo)
 #
-sed -i.bak "s#](/#(${book_link_prefix}/#g" "$book_output_file" && rm "$book_output_file.bak"
+convert_book_output_project_links_from_relative_to_absolute(){
+    sed -i.bak "s#](/#(${book_link_prefix}/#g" "$book_output_file" && rm "$book_output_file.bak"
+}
+
+main(){
+    cp "$book_input_file" "$book_output_file"
+    <"$book_links_file" markdown-text-to-link-urls |
+    grep '^doc/' |
+    while read -r x; do
+        fold_page "$x" >> "$book_output_file"
+    done
+    convert_book_output_markdown_headlines_to_work_with_pdf_toc
+    convert_book_output_project_links_from_relative_to_absolute
+}
+
+main
