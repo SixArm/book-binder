@@ -1,12 +1,12 @@
 #!/bin/sh
-set -euf
+#set -euf
 
 ## Program Tracking
 
 program_command="book-binder"
-program_version="1.0.0"
+program_version="1.1.0"
 program_created="2023-04-23T14:46:43Z"
-program_updated="2023-05-08T19:27:30Z"
+program_updated="2023-06-21T08:56:23Z"
 program_license="GPL-2.0 or GPL-3.0 or contact us for more"
 program_website="https://github.com/sixarm/book-binder"
 program_contact="Joel Parker Henderson (joel@sixarm.com)"
@@ -28,13 +28,15 @@ Syntax:
 
 Example:
 
-    book-binder "input.yml" "output.md" "README.md" "https://example.com/example"
+    book-binder "book-start.yml" "book-links.md" "book-build.md" "./pages" "https://example.com/pages"
 
 Steps:
 
-1. Parse the README.md file into page markdown file URLs.
+1. Start with the file book-start.yml which is front matter.
 
-2. Copy each page markdown file into one markdown file.
+2. Parse the file book-links.md file into page-specific markdown files.
+
+2. Append each page-specifi markdown file into the file book-build.md.
 
 3. Fix up internal links to point to repo URLs.
 
@@ -76,6 +78,14 @@ The result is one big markdown file, suitable for pandoc.
 
   * --program-contact:
       print the program contact information for the maintainer
+
+## Environment variables (optional)
+
+export BOOK_BINDER_START_FILE="book-start.yml" # front matter configuration
+export BOOK_BINDER_LINKS_FILE="book-links.md"  # input contents as markdown links
+export BOOK_BINDER_BUILD_FILE="book-build.md"; # output markdown temporary aggregation
+export BOOK_BINDER_PAGE_PATH_PREPEND="./pages"; # where to read each local input page path
+export BOOK_BINDER_PAGE_LINK_PREPEND=""/pages"; # where to direct each remote page link
 
 ## Tracking
 
@@ -150,17 +160,28 @@ while :; do
     shift
 done            
 
-book_input_file=$1;   shift; # e.g. "book-input.yml" where we read the front matter
-book_output_file=$1;  shift; # e.g. "book-output.md" where we write the build results
-book_links_file=$1;   shift; # e.g. "book-links.md" where we scan page markdown links
-book_link_prefix=$1;  shift; # e.g. "https://example.com/" where we direct top-level links
+start_file=${1:-${BOOK_BINDER_START_FILE:-book-start.yml}}; # file of front matter configuration
+links_file=${2:-${BOOK_BINDER_LINKS_FILE:-book-links.md}};  # input file to scan page markdown links
+build_file=${3:-${BOOK_BINDER_BUILD_FILE:-book-build.md}};  # output file to write temporary markdown aggregation
+page_path_preprend=${4:-${BOOK_BINDER_PAGE_PATH_PREPEND:-{./pages}}; # where to read each local input page path
+page_link_preprend=${5:-${BOOK_BINDER_PAGE_LINK_PREPEND:-{/pages}};  # where to direct each remote page link
+
+if [ "$verbose" -gt "0" ]; then
+cat << EOF
+start_file: $start_file
+links_file: $links_file
+build_file: $build_file
+page_path_prepend: $page_path_preprend
+page_link_prepend: $page_link_preprend
+EOF
+fi
 
 # Read one markdown page file.
 # This is essentially a map-fold function.
 fold_page(){
     {
         printf \\n;
-        cat "$TOP/$1/index.md"
+        cat "$1/index.md"
         printf \\n;
     }
 }
@@ -172,7 +193,7 @@ fold_page(){
 #   * # **Headline** to # (so the TOC shows a section entry)
 #
 convert_book_output_markdown_headlines_to_work_with_pdf_toc(){
-    sed -i.bak 's/^## /### /; s/^# /## /; s/^## \*\*\(.*\)\*\*$/# \1/' "$book_output_file" && rm "$book_output_file.bak"
+    sed -i.bak 's/^## /### /; s/^# /## /; s/^## \*\*\(.*\)\*\*$/# \1/' "$build_file" && rm "$build_file.bak"
 }
 
 # Convert project links from relative to absolute.
@@ -186,15 +207,15 @@ convert_book_output_markdown_headlines_to_work_with_pdf_toc(){
 #     [Foo](https://example.com/foo)
 #
 convert_book_output_project_links_from_relative_to_absolute(){
-    sed -i.bak "s#](/#(${book_link_prefix}/#g" "$book_output_file" && rm "$book_output_file.bak"
+    sed -i.bak "s#](/#(${page_link_preprend}/#g" "$build_file" && rm "$build_file.bak"
 }
 
 main(){
-    cp "$book_input_file" "$book_output_file"
-    <"$book_links_file" markdown-text-to-link-urls |
-    grep '^doc/' |
+    cp "$start_file" "$build_file"
+    <"$links_file" markdown-text-to-link-urls |
+    #grep '^doc/' |
     while read -r x; do
-        fold_page "$x" >> "$book_output_file"
+        fold_page "$page_path_preprend/$x" >> "$build_file"
     done
     convert_book_output_markdown_headlines_to_work_with_pdf_toc
     convert_book_output_project_links_from_relative_to_absolute
