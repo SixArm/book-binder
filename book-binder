@@ -212,13 +212,22 @@ convert_book_output_project_links_from_relative_to_absolute(){
 
 main(){
     cp "$start_file" "$build_file"
-    <"$links_file" markdown-text-to-link-urls |
-    #grep '^doc/' |
-    while read -r x; do
-        fold_page "$page_path_preprend/$x" >> "$build_file"
+    cat "$links_file" | while read -r line; do
+        case "$line" in
+            \#\#\#\ \[*\]\(*\))
+                topic=${line##*(}
+                topic=${topic%%)}
+                fold_page "$page_path_preprend/$topic" >> "$build_file"
+            ;;
+            \*\ \[*\]\(*\))
+                topic=${line##*(}
+                topic=${topic%%)}
+                fold_page "$page_path_preprend/$topic" | sed 's/^\(##*\) /#\1 /' >> "$build_file"
+            ;;
+        esac
     done
-    convert_book_output_markdown_headlines_to_work_with_pdf_toc
-    convert_book_output_project_links_from_relative_to_absolute
+    #convert_book_output_markdown_headlines_to_work_with_pdf_toc
+    #convert_book_output_project_links_from_relative_to_absolute
 }
 
 main
