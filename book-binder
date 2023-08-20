@@ -4,7 +4,7 @@
 ## Program Tracking
 
 program_command="book-binder"
-program_version="1.2.0"
+program_version="1.2.1"
 program_created="2023-04-23T14:46:43Z"
 program_updated="2023-06-22T21:40:00Z"
 program_license="GPL-2.0 or GPL-3.0 or contact us for more"
@@ -24,7 +24,7 @@ Create a book by binding our project's page markdown files.
 
 Syntax:
 
-    book-binder <input-file> <output-file> <link-file> <link-url-prefix>
+    book-binder [start-file] [links-file] [build-file] [page-path-prepend] [page-link-prepend]
 
 Example:
 
@@ -36,9 +36,9 @@ Steps:
 
 2. Parse the file book-links.md file into page-specific markdown files.
 
-2. Append each page-specifi markdown file into the file book-build.md.
+3. Append each page-specific markdown file into the file book-build.md.
 
-3. Fix up internal links to point to repo URLs.
+4. Fix up internal links to point to repo URLs.
 
 The result is one big markdown file, suitable for pandoc.
 
@@ -160,9 +160,9 @@ while :; do
     shift
 done            
 
-start_file=${1:-${BOOK_BINDER_START_FILE:-book-start.yml}}; # file of front matter configuration
-links_file=${2:-${BOOK_BINDER_LINKS_FILE:-book-links.md}};  # input file to scan page markdown links
-build_file=${3:-${BOOK_BINDER_BUILD_FILE:-book-build.md}};  # output file to write temporary markdown aggregation
+start_file=${1:-${BOOK_BINDER_START_FILE:-book-start.yml}}; # input file where we load front matter configuration
+links_file=${2:-${BOOK_BINDER_LINKS_FILE:-book-links.md}};  # input file where we scan page markdown links
+build_file=${3:-${BOOK_BINDER_BUILD_FILE:-book-build.md}};  # output file where we write temporary markdown aggregation
 page_path_preprend=${4:-${BOOK_BINDER_PAGE_PATH_PREPEND:-{./pages}}; # where to read each local input page path
 page_link_preprend=${5:-${BOOK_BINDER_PAGE_LINK_PREPEND:-{/pages}};  # where to direct each remote page link
 
