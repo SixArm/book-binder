@@ -210,6 +210,24 @@ convert_book_output_project_links_from_relative_to_absolute(){
     sed -i.bak "s#](/#(${page_link_preprend}/#g" "$build_file" && rm "$build_file.bak"
 }
 
+# Convert project links from sibling-direcotry to autogenerate format.
+#
+# Example input:
+#
+#    [Foo](../foo)
+#
+# Example output:
+#
+#    [Foo]
+#
+# Pandoc Markdown PDF cannot correctly parse sibling-directory links.
+# Instead, Pandoc expects internal PDF link brackets that correspond
+# to internal autogenerate format i.e. Pandoc-generated page headlines.
+#
+convert_book_output_project_links_from_sibling_directory_to_autogenerate(){
+    sed -i.bak 's#\](\.\./[^)]*)#]#g' "$build_file" && rm "$build_file.bak"
+}
+
 main(){
     cp "$start_file" "$build_file"
     cat "$links_file" | while read -r line; do
@@ -228,6 +246,7 @@ main(){
     done
     #convert_book_output_markdown_headlines_to_work_with_pdf_toc
     #convert_book_output_project_links_from_relative_to_absolute
+    convert_book_output_project_links_from_sibling_directory_to_autogenerate
 }
 
 main
